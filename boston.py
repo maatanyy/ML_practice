@@ -17,14 +17,26 @@ print(독립.shape, 종속.shape)
 
 # 모델의 구조를 만드는 부분
 X = tf.keras.layers.Input(shape=[13])
-Y = tf.keras.layers.Dense(1)(X)
+H = tf.keras.layers.Dense(10, activation='swish')(X)   #히든레이어
+Y = tf.keras.layers.Dense(1)(H)
 model = tf.keras.models.Model(X, Y)
 model.compile(loss='mse')
+
+#model.summary()  #잘 만들어졌나 확인
 
 #모델 학습 시키는 부분
 model.fit(독립, 종속, epochs= 1000)
 
 print(model.predict(독립[0:5]))
+
+
+
+
+
+
+
+
+
 
 
 

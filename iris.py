@@ -18,7 +18,10 @@ print(iris.columns)
 
 # 모델의 구조를 만드는 부분
 X = tf.keras.layers.Input(shape=[4])
-Y = tf.keras.layers.Dense(3, activation='softmax')(X)
+H = tf.keras.layers.Dense(8, activation='swish')(X)
+H = tf.keras.layers.Dense(8, activation='swish')(H)
+H = tf.keras.layers.Dense(8, activation='swish')(H)
+Y = tf.keras.layers.Dense(3, activation='softmax')(H)
 model = tf.keras.models.Model(X, Y)
 model.compile(loss='categorical_crossentropy', metrics='accuracy')  #문제에 따라 loss를 다르게 사용한다
 
@@ -26,8 +29,8 @@ model.compile(loss='categorical_crossentropy', metrics='accuracy')  #문제에 �
 model.fit(독립, 종속, epochs=100)
 
 #모델을 이용
-print(model.predict(독립[-5:]))
-print(종속[-5:])
+print(model.predict(독립[0:5]))
+print(종속[0:5])
 
 #학습한 가중치
 model.get_weights()
