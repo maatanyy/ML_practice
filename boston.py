@@ -17,7 +17,22 @@ print(독립.shape, 종속.shape)
 
 # 모델의 구조를 만드는 부분
 X = tf.keras.layers.Input(shape=[13])
-H = tf.keras.layers.Dense(10, activation='swish')(X)   #히든레이어
+
+
+#BatchNormailization Layer 이용
+
+H = tf.keras.layers.Dense(8)(X)
+H = tf.keras.layers.BatchNormalization()(H)
+H = tf.keras.layers.Activation('swish')(H)
+
+H = tf.keras.layers.Dense(8)(H)
+H = tf.keras.layers.BatchNormalization()(H)
+H = tf.keras.layers.Activation('swish')(H)
+
+H = tf.keras.layers.Dense(8)(H)
+H = tf.keras.layers.BatchNormalization()(H)
+H = tf.keras.layers.Activation('swish')(H)
+
 Y = tf.keras.layers.Dense(1)(H)
 model = tf.keras.models.Model(X, Y)
 model.compile(loss='mse')
@@ -28,6 +43,18 @@ model.compile(loss='mse')
 model.fit(독립, 종속, epochs= 1000)
 
 print(model.predict(독립[0:5]))
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
