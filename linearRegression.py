@@ -24,19 +24,19 @@ b = tf.Variable(rng.randn(), name="bias")
 def linear_regression(x):
     return W * x + b
 
-# Mean square error.
+# Mean square error.  #표준제곱오차 구하는 공식
 def mean_square(y_pred, y_true):
     return tf.reduce_mean(tf.square(y_pred - y_true))
 
-# Stochastic Gradient Descent Optimizer.
+# Stochastic Gradient Descent Optimizer.  #경사 강화 최적화
 optimizer = tf.optimizers.SGD(learning_rate)
 # Tensor , 소수점 값, 또는 인 일정 부동 tf.keras.optimizers.schedules.LearningRateSchedule , 또는 인수가없는 사용의 실제 값을 반환하는 호출을. 학습률입니다. 기본값은 0.01입니다.
 
 
-# Optimization process.
+# Optimization process.   #최적화 프로세스
 def run_optimization():
     # Wrap computation inside a GradientTape for automatic differentiation.
-    with tf.GradientTape() as g:
+    with tf.GradientTape() as g: #연관된 연산을 g에 기록
         pred = linear_regression(X)
         loss = mean_square(pred, Y)
 
@@ -62,4 +62,6 @@ plt.plot(X, Y, 'ro', label='Original data')
 plt.plot(X, np.array(W * X + b), label='Fitted line')
 plt.legend()
 plt.show()
+
+
 
