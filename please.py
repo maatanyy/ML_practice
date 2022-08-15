@@ -4,25 +4,38 @@ import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
-import random
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
+from torch.utils.data import TensorDataset    #텐서데이터셋
+from torch.utils.data import DataLoader       #데이터로더
 
-                                      # 데이터 불러오기         -> 데이터 불러와서 전처리 해야함
-df = pd.read_csv('./data-02-stock_daily.csv')
+                                              # 데이터 불러오기         -> 데이터 불러와서 전처리 해야함
+#df = pd.read_csv('./data-02-stock_daily.csv')
+bmiData = pd.read_csv('bimtestyo.csv')
+bmiData['ID'] = pd.to_numeric(bmiData['ID'], errors='coerce')    #object 타입을 에러 없애고 float으로 변환
+bmiData['ID'] = bmiData['ID'].astype(float)
+bmiData['birth'] = pd.to_numeric(bmiData['birth'], errors='coerce')    #object 타입을 에러 없애고 float으로 변환
+bmiData['birth'] = bmiData['birth'].astype(float)
 
-                                      # 7일간의 데이터가 입력으로 들어가고 batch size는 임의로 지정    -> 데이터 양 수정해야함
-seq_length = 7
-batch = 100
+bmiData = bmiData.drop(columns=['ID','isSupporter','birth'])         # gender, grade, birth, height, weight, bmi
+
+#print(bmiData)
+#print(df)
+
+
+
+seq_length = 321                      #데이터 양 date 수 넣으면 됨
+batch = 100                           #배치 사이즈는 임의로 지정
 
 # 데이터를 역순으로 정렬하여 전체 데이터의 70% 학습, 30% 테스트에 사용
-df = df[::-1]
-train_size = int(len(df)*0.7)
-train_set = df[0:train_size]
-test_set = df[train_size-seq_length:]
+bmiData = bmiData[::-1]
+print(bmiData)
+train_size = int(len(bmiData)*0.7)
+train_set = bmiData[0:train_size]
+test_set = bmiData[train_size-seq_length:]
 
-# Input scale
-scaler_x = MinMaxScaler()
+# Input scale                           #데이터 스케일링, 각 칼럼을 0-1 사이의 값으로 스케일링
+scaler_x = MinMaxScaler()               #MinMaxScaler 사용
 scaler_x.fit(train_set.iloc[:, :-1])
 
 train_set.iloc[:, :-1] = scaler_x.transform(train_set.iloc[:, :-1])
@@ -32,13 +45,13 @@ test_set.iloc[:, :-1] = scaler_x.transform(test_set.iloc[:, :-1])
 scaler_y = MinMaxScaler()
 scaler_y.fit(train_set.iloc[:, [-1]])
 
+
 train_set.iloc[:, -1] = scaler_y.transform(train_set.iloc[:, [-1]])
 test_set.iloc[:, -1] = scaler_y.transform(test_set.iloc[:, [-1]])
 
-from torch.utils.data import TensorDataset # 텐서데이터셋
-from torch.utils.data import DataLoader # 데이터로더
 
-# 데이터셋 생성 함수
+
+# 데이터셋 생성 함수                             #파이토치에서는 3D 텐서의 입력을 받으므로 torch.FloatTensor를 사용하여 np.arrary 형태에서 tensor 형태로 바꿔준다.
 def build_dataset(time_series, seq_length):
     dataX = []
     dataY = []
@@ -71,11 +84,11 @@ dataloader = DataLoader(dataset,
                         drop_last=True)
 
 # 설정값
-data_dim = 5
-hidden_dim = 10
-output_dim = 1
-learning_rate = 0.01
-nb_epochs = 100
+data_dim = 5                                                     #입력 칼럼 수정해줘야함!!!!!!
+hidden_dim = 10                                                    #히든 스테이트 계속 바꿔봐야함!!!!
+output_dim = 1                                                     #output 1개
+learning_rate = 0.01                                               #학습률 0.01
+nb_epochs = 1000                                                    #에폭
 device = torch.device("cpu")  # device
 
 class Net(nn.Module):
@@ -151,17 +164,17 @@ def train_model(model, train_df, num_epochs=None, lr=None, verbose=10, patience=
 
                 break
 
-    return model.eval(), train_hist
+    return model.eval(), train_hist   # model.eval()을 사용하여 evaluation 과정에서 사용되지 말아야할 layer들을 알아서 꺼주는 함수다.
 
 # 모델 학습
 net = Net(data_dim, hidden_dim, seq_length, output_dim, 1).to(device)
 model, train_hist = train_model(net, dataloader, num_epochs = nb_epochs, lr = learning_rate, verbose = 20, patience = 10)
 
 # epoch별 손실값
-fig = plt.figure(figsize=(10, 4))
-plt.plot(train_hist, label="Training loss")
-plt.legend()
-plt.show()
+#fig = plt.figure(figsize=(10, 4))
+#plt.plot(train_hist, label="Training loss")
+#plt.legend()
+#plt.show()
 
 # 모델 저장
 PATH = "./Timeseries_LSTM_data-02-stock_daily_.pth"
@@ -197,3 +210,4 @@ plt.plot(np.arange(len(pred_inverse)), pred_inverse, label = 'pred')
 plt.plot(np.arange(len(testY_inverse)), testY_inverse, label = 'true')
 plt.title("Loss plot")
 plt.show()
+
