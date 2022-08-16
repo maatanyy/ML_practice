@@ -10,7 +10,7 @@ from torch.utils.data import TensorDataset    #텐서데이터셋
 from torch.utils.data import DataLoader       #데이터로더
 
                                               # 데이터 불러오기         -> 데이터 불러와서 전처리 해야함
-#df = pd.read_csv('./data-02-stock_daily.csv')
+df = pd.read_csv('./data-02-stock_daily.csv')
 bmiData = pd.read_csv('bimtestyo.csv')
 bmiData['ID'] = pd.to_numeric(bmiData['ID'], errors='coerce')    #object 타입을 에러 없애고 float으로 변환
 bmiData['ID'] = bmiData['ID'].astype(float)
@@ -18,21 +18,22 @@ bmiData['birth'] = pd.to_numeric(bmiData['birth'], errors='coerce')    #object �
 bmiData['birth'] = bmiData['birth'].astype(float)
 
 bmiData = bmiData.drop(columns=['ID','isSupporter','birth'])         # gender, grade, birth, height, weight, bmi
-
+pd.set_option('mode.chained_assignment',  None)          #pandas 경고 끄기 옵션    #https://blog.naver.com/PostView.nhn?blogId=wideeyed&logNo=221817400937 참고
 #print(bmiData)
 #print(df)
 
-
-
-seq_length = 321                      #데이터 양 date 수 넣으면 됨
-batch = 100                           #배치 사이즈는 임의로 지정
+seq_length = 7                  #데이터 양 date 수 넣으면 됨
+batch = 16                          #배치 사이즈는 임의로 지정
 
 # 데이터를 역순으로 정렬하여 전체 데이터의 70% 학습, 30% 테스트에 사용
 bmiData = bmiData[::-1]
-print(bmiData)
+#print(bmiData)
 train_size = int(len(bmiData)*0.7)
 train_set = bmiData[0:train_size]
 test_set = bmiData[train_size-seq_length:]
+
+#print(train_set)
+#print(test_set)
 
 # Input scale                           #데이터 스케일링, 각 칼럼을 0-1 사이의 값으로 스케일링
 scaler_x = MinMaxScaler()               #MinMaxScaler 사용
@@ -45,11 +46,12 @@ test_set.iloc[:, :-1] = scaler_x.transform(test_set.iloc[:, :-1])
 scaler_y = MinMaxScaler()
 scaler_y.fit(train_set.iloc[:, [-1]])
 
-
 train_set.iloc[:, -1] = scaler_y.transform(train_set.iloc[:, [-1]])
 test_set.iloc[:, -1] = scaler_y.transform(test_set.iloc[:, [-1]])
 
 
+# 확인용 print(train_set.iloc[:, -1])
+# 확인용 print(test_set.iloc[:, -1])
 
 # 데이터셋 생성 함수                             #파이토치에서는 3D 텐서의 입력을 받으므로 torch.FloatTensor를 사용하여 np.arrary 형태에서 tensor 형태로 바꿔준다.
 def build_dataset(time_series, seq_length):
@@ -58,12 +60,13 @@ def build_dataset(time_series, seq_length):
     for i in range(0, len(time_series)-seq_length):
         _x = time_series[i:i+seq_length, :]
         _y = time_series[i+seq_length, [-1]]
-        # print(_x, "-->",_y)
+        #print(_x, "-->",_y)
         dataX.append(_x)
         dataY.append(_y)
 
     return np.array(dataX), np.array(dataY)
 
+#print(np.array(train_set))
 trainX, trainY = build_dataset(np.array(train_set), seq_length)
 testX, testY = build_dataset(np.array(test_set), seq_length)
 
@@ -76,7 +79,6 @@ testY_tensor = torch.FloatTensor(testY)
 
 # 텐서 형태로 데이터 정의
 dataset = TensorDataset(trainX_tensor, trainY_tensor)
-
 # 데이터로더는 기본적으로 2개의 인자를 입력받으며 배치크기는 통상적으로 2의 배수를 사용
 dataloader = DataLoader(dataset,
                         batch_size=batch,
@@ -84,12 +86,13 @@ dataloader = DataLoader(dataset,
                         drop_last=True)
 
 # 설정값
-data_dim = 5                                                     #입력 칼럼 수정해줘야함!!!!!!
+data_dim = 5                                                       #입력 칼럼 수정해줘야함!!!!!!
 hidden_dim = 10                                                    #히든 스테이트 계속 바꿔봐야함!!!!
 output_dim = 1                                                     #output 1개
 learning_rate = 0.01                                               #학습률 0.01
-nb_epochs = 1000                                                    #에폭
-device = torch.device("cpu")  # device
+nb_epochs = 1000                                                #에폭
+device = torch.device("cpu")
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Net(nn.Module):
     # # 기본변수, layer를 초기화해주는 생성자
@@ -156,19 +159,21 @@ def train_model(model, train_df, num_epochs=None, lr=None, verbose=10, patience=
             print('Epoch:', '%04d' % (epoch), 'train loss :', '{:.4f}'.format(avg_cost))
 
         # patience번째 마다 early stopping 여부 확인
-        if (epoch % patience == 0) & (epoch != 0):
+        #if (epoch % patience == 0) & (epoch != 0):
 
             # loss가 커졌다면 early stop
-            if train_hist[epoch - patience] < train_hist[epoch]:
-                print('\n Early Stopping')
+            #if train_hist[epoch - patience] < train_hist[epoch]:
+                #print('\n Early Stopping')
 
-                break
+                #break
 
     return model.eval(), train_hist   # model.eval()을 사용하여 evaluation 과정에서 사용되지 말아야할 layer들을 알아서 꺼주는 함수다.
 
 # 모델 학습
 net = Net(data_dim, hidden_dim, seq_length, output_dim, 1).to(device)
-model, train_hist = train_model(net, dataloader, num_epochs = nb_epochs, lr = learning_rate, verbose = 20, patience = 10)
+model, train_hist = train_model(net, dataloader, num_epochs = nb_epochs, lr = learning_rate, verbose = 100, patience = 50)
+
+#print(net)   모델확인
 
 # epoch별 손실값
 #fig = plt.figure(figsize=(10, 4))
@@ -177,7 +182,7 @@ model, train_hist = train_model(net, dataloader, num_epochs = nb_epochs, lr = le
 #plt.show()
 
 # 모델 저장
-PATH = "./Timeseries_LSTM_data-02-stock_daily_.pth"
+PATH = "./Timeseries_LSTM_bmi_.pth"
 torch.save(model.state_dict(), PATH)
 
 # 불러오기
@@ -204,6 +209,8 @@ def MAE(true, pred):
     return np.mean(np.abs(true-pred))
 
 print('MAE SCORE : ', MAE(pred_inverse, testY_inverse))
+print(pred_inverse-testY_inverse)
+#print(testY_inverse)
 
 fig = plt.figure(figsize=(8,3))
 plt.plot(np.arange(len(pred_inverse)), pred_inverse, label = 'pred')
