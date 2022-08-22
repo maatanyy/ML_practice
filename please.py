@@ -6,10 +6,10 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
-from torch.utils.data import TensorDataset    #텐서데이터셋
-from torch.utils.data import DataLoader       #데이터로더
+from torch.utils.data import TensorDataset                #텐서데이터셋
+from torch.utils.data import DataLoader                   #데이터로더
 
-                                              # 데이터 불러오기         -> 데이터 불러와서 전처리 해야함
+                                                          # 데이터 불러오기-> 데이터 불러와서 전처리 해야함
 df = pd.read_csv('./data-02-stock_daily.csv')
 bmiData = pd.read_csv('bimtestyo.csv')
 bmiData['ID'] = pd.to_numeric(bmiData['ID'], errors='coerce')    #object 타입을 에러 없애고 float으로 변환
@@ -17,41 +17,52 @@ bmiData['ID'] = bmiData['ID'].astype(float)
 bmiData['birth'] = pd.to_numeric(bmiData['birth'], errors='coerce')    #object 타입을 에러 없애고 float으로 변환
 bmiData['birth'] = bmiData['birth'].astype(float)
 
-bmiData = bmiData.drop(columns=['ID','isSupporter','birth'])         # gender, grade, birth, height, weight, bmi
+bmiData = bmiData.drop(columns=['ID','isSupporter','birth'])         #gender, grade, birth, height, weight, bmi
 pd.set_option('mode.chained_assignment',  None)          #pandas 경고 끄기 옵션    #https://blog.naver.com/PostView.nhn?blogId=wideeyed&logNo=221817400937 참고
-#print(bmiData)
 #print(df)
 
-seq_length = 7                  #데이터 양 date 수 넣으면 됨
-batch = 16                          #배치 사이즈는 임의로 지정
+seq_length = 7                      #데이터 양 date 수 넣으면 됨
+batch = 64                          #배치 사이즈는 임의로 지정
 
-# 데이터를 역순으로 정렬하여 전체 데이터의 70% 학습, 30% 테스트에 사용
+#데이터를 역순으로 정렬하여 전체 데이터의 70% 학습, 30% 테스트에 사용
 bmiData = bmiData[::-1]
+
+#ID,gender,grade,birth,height,weight,bmi,isSupporter
+scaler_x = MinMaxScaler()
+bmiData[['gender','grade','height','weight']] = scaler_x.fit_transform(bmiData[['gender','grade','height','weight']])
+scaler_y = MinMaxScaler()
+bmiData['bmi'] = scaler_y.fit_transform(bmiData['bmi'].values.reshape(-1,1))
+
+
 #print(bmiData)
 train_size = int(len(bmiData)*0.7)
 train_set = bmiData[0:train_size]
 test_set = bmiData[train_size-seq_length:]
 
+
 #print(train_set)
 #print(test_set)
-
 # Input scale                           #데이터 스케일링, 각 칼럼을 0-1 사이의 값으로 스케일링
-scaler_x = MinMaxScaler()               #MinMaxScaler 사용
-scaler_x.fit(train_set.iloc[:, :-1])
 
-train_set.iloc[:, :-1] = scaler_x.transform(train_set.iloc[:, :-1])
-test_set.iloc[:, :-1] = scaler_x.transform(test_set.iloc[:, :-1])
+#scaler_x = MinMaxScaler()               #MinMaxScaler 사용
+#scaler_x.fit(train_set.iloc[:, :])
+#train_set.iloc[:, :] = scaler_x.transform(t
+#rain_set.iloc[:, :])
+#test_set.iloc[:, :] = scaler_x.transform(test_set.iloc[:, :])
+
+#print(train_set.iloc[:, :])
+#print(test_set.iloc[:, :])
 
 # Output scale
-scaler_y = MinMaxScaler()
-scaler_y.fit(train_set.iloc[:, [-1]])
+#scaler_y = MinMaxScaler()
+#scaler_y.fit(train_set.iloc[:, [-1]])
+#train_set.iloc[:, -1] = scaler_y.transform(train_set.iloc[:, [-1]])
+#test_set.iloc[:, -1] = scaler_y.transform(test_set.iloc[:, [-1]])
 
-train_set.iloc[:, -1] = scaler_y.transform(train_set.iloc[:, [-1]])
-test_set.iloc[:, -1] = scaler_y.transform(test_set.iloc[:, [-1]])
+#print(train_set.iloc[:, -1])
+#print(train_set)
+#print(test_set.iloc[:, -1])
 
-
-# 확인용 print(train_set.iloc[:, -1])
-# 확인용 print(test_set.iloc[:, -1])
 
 # 데이터셋 생성 함수                             #파이토치에서는 3D 텐서의 입력을 받으므로 torch.FloatTensor를 사용하여 np.arrary 형태에서 tensor 형태로 바꿔준다.
 def build_dataset(time_series, seq_length):
@@ -67,32 +78,45 @@ def build_dataset(time_series, seq_length):
     return np.array(dataX), np.array(dataY)
 
 #print(np.array(train_set))
-trainX, trainY = build_dataset(np.array(train_set), seq_length)
-testX, testY = build_dataset(np.array(test_set), seq_length)
+
+trainX, trainY = build_dataset(np.array(train_set), seq_length)                     #np.array 상태임
+testX, testY = build_dataset(np.array(test_set), seq_length)                        #np.array 상태임
+
 
 # 텐서로 변환
-trainX_tensor = torch.FloatTensor(trainX)
-trainY_tensor = torch.FloatTensor(trainY)
+trainX_tensor = torch.FloatTensor(trainX)  #  .cuda()로 GPU에 실어줌
+trainY_tensor = torch.FloatTensor(trainY) #  .cuda()로 GPU에 실어줌
 
-testX_tensor = torch.FloatTensor(testX)
-testY_tensor = torch.FloatTensor(testY)
+testX_tensor = torch.FloatTensor(testX)     #  .cuda()로 GPU에 실어줌
+testY_tensor = torch.FloatTensor(testY)    #  .cuda()로 GPU에 실어줌
+
+
+
+#print()로 확인시 뭐가 나오기는 함 X는 5줄 Y는 1줄
+
 
 # 텐서 형태로 데이터 정의
 dataset = TensorDataset(trainX_tensor, trainY_tensor)
+
 # 데이터로더는 기본적으로 2개의 인자를 입력받으며 배치크기는 통상적으로 2의 배수를 사용
 dataloader = DataLoader(dataset,
                         batch_size=batch,
                         shuffle=True,
                         drop_last=True)
 
+#print(dataloader)
+
 # 설정값
 data_dim = 5                                                       #입력 칼럼 수정해줘야함!!!!!!
 hidden_dim = 10                                                    #히든 스테이트 계속 바꿔봐야함!!!!
 output_dim = 1                                                     #output 1개
 learning_rate = 0.01                                               #학습률 0.01
-nb_epochs = 1000                                                #에폭
+nb_epochs = 100                                              #에폭
+
+
 device = torch.device("cpu")
 #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 class Net(nn.Module):
     # # 기본변수, layer를 초기화해주는 생성자
@@ -122,7 +146,7 @@ class Net(nn.Module):
         return x
 
 
-def train_model(model, train_df, num_epochs=None, lr=None, verbose=10, patience=10):
+def train_model(model, train_df, num_epochs=None, lr=None, verbose=10):
     criterion = nn.MSELoss().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     nb_epochs = num_epochs
@@ -158,22 +182,13 @@ def train_model(model, train_df, num_epochs=None, lr=None, verbose=10, patience=
         if epoch % verbose == 0:
             print('Epoch:', '%04d' % (epoch), 'train loss :', '{:.4f}'.format(avg_cost))
 
-        # patience번째 마다 early stopping 여부 확인
-        #if (epoch % patience == 0) & (epoch != 0):
-
-            # loss가 커졌다면 early stop
-            #if train_hist[epoch - patience] < train_hist[epoch]:
-                #print('\n Early Stopping')
-
-                #break
-
     return model.eval(), train_hist   # model.eval()을 사용하여 evaluation 과정에서 사용되지 말아야할 layer들을 알아서 꺼주는 함수다.
 
 # 모델 학습
 net = Net(data_dim, hidden_dim, seq_length, output_dim, 1).to(device)
-model, train_hist = train_model(net, dataloader, num_epochs = nb_epochs, lr = learning_rate, verbose = 100, patience = 50)
+model, train_hist = train_model(net, dataloader, num_epochs = nb_epochs, lr = learning_rate, verbose = 100)
 
-#print(net)   모델확인
+#print(net)   #모델확인
 
 # epoch별 손실값
 #fig = plt.figure(figsize=(10, 4))
@@ -188,6 +203,7 @@ torch.save(model.state_dict(), PATH)
 # 불러오기
 model = Net(data_dim, hidden_dim, seq_length, output_dim, 1).to(device)
 model.load_state_dict(torch.load(PATH), strict=False)
+
 model.eval()
 
 # 예측 테스트
@@ -203,18 +219,30 @@ with torch.no_grad():
 
     # INVERSE
     pred_inverse = scaler_y.inverse_transform(np.array(pred).reshape(-1, 1))
-    testY_inverse = scaler_y.inverse_transform(testY_tensor)
+    #print(pred_inverse)
+    #testY_inverse = scaler_y.inverse_transform(testY_tensor)
+    testY_inverse = scaler_y.inverse_transform(bmiData['bmi'][train_size-seq_length:].values.reshape(-1, 1))
+    #print(testY_inverse)
+
+#print(testY_inverse)
 
 def MAE(true, pred):
     return np.mean(np.abs(true-pred))
 
-print('MAE SCORE : ', MAE(pred_inverse, testY_inverse))
-print(pred_inverse-testY_inverse)
+#print(pred)
+
+#print('MAE SCORE : ', MAE(pred_inverse, testY_inverse))
+#print(pred_inverse-testY_inverse)
 #print(testY_inverse)
 
-fig = plt.figure(figsize=(8,3))
-plt.plot(np.arange(len(pred_inverse)), pred_inverse, label = 'pred')
-plt.plot(np.arange(len(testY_inverse)), testY_inverse, label = 'true')
+
+print(len(pred_inverse))
+#print(len(testY_inverse))
+#print(pred_inverse)
+
+fig = plt.figure(figsize=(10,5))
+plt.plot(np.arange(len(pred_inverse)), pred_inverse,'ro', label = 'pred')
+plt.plot(np.arange(len(testY_inverse)), testY_inverse,'bo', label = 'true')
 plt.title("Loss plot")
 plt.show()
 
