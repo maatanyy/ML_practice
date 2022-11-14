@@ -94,6 +94,7 @@ test = torch.utils.data.TensorDataset(x_test_seq, y_test_seq)
 trainloader = torch.utils.data.DataLoader(dataset=train, batch_size=6, shuffle=True)
 testloader = torch.utils.data.DataLoader(dataset=test, batch_size=6)
 
+
 num_layers = 2
 hidden_size = 6
 
@@ -124,7 +125,6 @@ model = LSTM(input_size=input_size,
 
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
-
 
 n = len(trainloader)
 loss_graph = []
@@ -193,15 +193,15 @@ for i in range(forTestLength):
 
 
 plt.figure(figsize=(20, 10))
-plt.plot(np.ones(100) * len(test), np.linspace(0, 10, 100), '-', linewidth=0.6)
-plt.plot(Y[forTestLength:], 'r')                        #빨간색이 실제
+plt.plot(np.ones(100) * (split+sequence_length), np.linspace(0, 10, 100), '-', linewidth = 0.6)
+plt.plot(Y[:], 'r')                        #빨간색이 실제
 plt.plot(pred[:], 'b', linewidth=0.6)      #파란색이 예측
 plt.legend(['hi'])
 plt.show()
 
 
-print("count : ",count, "length:",length-split-sequence_length)
-print("Accuracy: ", count/length)
+print("count : ", count, "length : ", forTestLength)
+print("Accuracy: ", count/forTestLength)
 
 
 
