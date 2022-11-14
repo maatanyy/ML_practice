@@ -42,9 +42,9 @@ def seq_data(x, y, sequence_length):
 
     return torch.FloatTensor(x_seq).to(device), torch.FloatTensor(y_seq).to(device).view(-1, 1)
 
-split = 200
-#split = int(0.8 * len(X))
-sequence_length = 8
+split = 1600
+sequence_length = 6
+
 x_seq, y_seq = seq_data(X, Y, sequence_length)
 #split = int(0.8 * len(x_seq))
 
@@ -53,16 +53,15 @@ y_train_seq = y_seq[:split]
 x_test_seq = x_seq[split:]
 y_test_seq = y_seq[split:]
 
-
 #print(x_train_seq.shape)
 # print(y_train_seq.shape)
 # print(x_test_seq.shape)
 # print(y_test_seq.shape)
 
 nsamples, nx, ny = x_train_seq.shape
-print(nsamples)
-print(nx)
-print(ny)
+print("nsamples :", nsamples)
+print("nx :", nx)
+print("ny :", ny)
 
 x_train_seq = x_train_seq.reshape((nsamples, nx*ny))
 
@@ -81,17 +80,19 @@ x_smote = x_smote.reshape((tempx, sequence_length, input_size))
 
 y_smote = torch.Tensor(y_smote)
 tempy, = y_smote.shape
-y_smote = y_smote.reshape((tempy,1))
+y_smote = y_smote.reshape((tempy, 1))
 
-print(y_smote.shape)
-print(y_test_seq.shape)
-
+#print("y_smote.shape: ", y_smote.shape)
+#print("y_test_seq.shape: ", y_test_seq.shape)
 
 train = torch.utils.data.TensorDataset(x_smote, y_smote)
 test = torch.utils.data.TensorDataset(x_test_seq, y_test_seq)
 
-trainloader = torch.utils.data.DataLoader(dataset=train, batch_size=20, shuffle=True)
-testloader = torch.utils.data.DataLoader(dataset=test, batch_size=20)
+#print(len(train))         #370
+#print(len(test))          #1724
+
+trainloader = torch.utils.data.DataLoader(dataset=train, batch_size=6, shuffle=True)
+testloader = torch.utils.data.DataLoader(dataset=test, batch_size=6)
 
 num_layers = 2
 hidden_size = 6
@@ -124,10 +125,11 @@ model = LSTM(input_size=input_size,
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
+
 n = len(trainloader)
 loss_graph = []
 
-for epoch in range(200):
+for epoch in range(5):
     running_loss = 0.0
     for data in trainloader:
         seq, target = data
@@ -143,9 +145,10 @@ for epoch in range(200):
     #if epoch % 100 == 0:
     print("Epoch : %d loss : %.4f" % (epoch, running_loss / n))
 
-concatdata = torch.utils.data.ConcatDataset([train, test])
-data_loader = torch.utils.data.DataLoader(concatdata, batch_size=100)
+concatdata = torch.utils.data.ConcatDataset([test])
+data_loader = torch.utils.data.DataLoader(concatdata)
 
+#print(len(data_loader))
 
 with torch.no_grad():
     pred = []
@@ -155,6 +158,7 @@ with torch.no_grad():
         out = model(seq)
         pred += out.cpu().tolist()
 
+
 pred = scaler2.inverse_transform(pred)
 Y = scaler2.inverse_transform(Y)
 length = len(pred)
@@ -162,19 +166,36 @@ length = len(pred)
 #print(Y[sequence_length:])
 #print(data['height'][sequence_length:].values)
 
-print("pred:", len(pred))
-print("Y[split:]", len(Y[split:]))
+
+#print("pred:", len(pred))
+#print("Y[split:]", len(Y[split+sequence_length:]))
 count = 0
 
-for i in range(length-split-sequence_length):
-    if round(pred[split+i][0]) == round(Y_real[split+i][0]):
-        count = count+1
+
+forTestLength = len(X)-sequence_length-split
+#print("Num of Test : ", forTestLength)
+
+
+#print("pred:", len(pred))
+#print("Y_real:", len(Y_real))
+
+
+for i in range(forTestLength):
+     if round(pred[i][0]) == round(Y_real[forTestLength+i][0]):
+         count = count+1
+
+
+#for i in range(forTestLength):    예측 라벨 확인
+#     print(pred[i][0])
+
+#for i in range(forTestLength):    실제 라벨 값 확인
+#     print(Y_real[forTestLength+i][0])
+
 
 plt.figure(figsize=(20, 10))
-plt.plot(np.ones(100) * len(train), np.linspace(0
-                                                , 10, 100), '-', linewidth=0.6)
-plt.plot(Y[split+sequence_length:], 'r')                        #빨간색이 실제
-plt.plot(pred[split+sequence_length:], 'b', linewidth=0.6)      #파란색이 예측
+plt.plot(np.ones(100) * len(test), np.linspace(0, 10, 100), '-', linewidth=0.6)
+plt.plot(Y[forTestLength:], 'r')                        #빨간색이 실제
+plt.plot(pred[:], 'b', linewidth=0.6)      #파란색이 예측
 plt.legend(['hi'])
 plt.show()
 
@@ -182,7 +203,5 @@ plt.show()
 print("count : ",count, "length:",length-split-sequence_length)
 print("Accuracy: ", count/length)
 
-#test
-#전체 27047
-#split 200 sequence 5
+
 
