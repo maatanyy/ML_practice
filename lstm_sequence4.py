@@ -8,31 +8,45 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from imblearn.over_sampling import SMOTE
 
-data = pd.read_excel('2weeks_summary2.xlsx')
-#ID	height	weight	step_count	burn_calorie	eat_calorie	sleep	bmi	bmi_target
 
+# 엑셀 파일을 읽어옴
+data = pd.read_excel('2weeks_summary2.xlsx')
+
+# 변수
+# ID	height	weight	step_count	burn_calorie	eat_calorie	sleep	bmi	bmi_target
+
+
+# MinMaxScaler()로 정규화
 scaler = MinMaxScaler()
 data[['Weight','BMI','Step','Burn','Eat','Sleep']] = scaler.fit_transform(data[['Weight','BMI','Step','Burn','Eat','Sleep']])
 
-Y_real = data[['Label']]
-Y_real = Y_real.to_numpy()
 
+# Y_real 에는 마지막 원래 라벨값 넣어둠 -> 예측된 값과 비교하기 위해 쓰임
+#Y_real = data[['Label']]
+#Y_real = Y_real.to_numpy()
+
+Y_real = pd.get_dummies('Label')
+print(Y_real)
+
+# MinMaxScaler()로 정규화
 scaler2 = MinMaxScaler()
 data[['Label']] = scaler2.fit_transform(data[['Label']])
 
 
+# 이유는 모르겠는데 라벨 타입을 인트로 바꿈 (에러 해결하기 위해 이랬음)
 X = data[['Weight','BMI','Step','Burn','Eat','Sleep']].values
 data = data.astype({'Label':'int'})
 Y = data[['Label']].values
 
-print(Y)
 
-input_size = 6        # input_size
+input_size = 6        # input_size, 입력 변수의 개수
 print(input_size)
 
-#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
 
+
+# seq_length 만큼 데이터를 묶어주는 함수임
 def seq_data(x, y, sequence_length):
     x_seq = []
     y_seq = []
@@ -42,38 +56,61 @@ def seq_data(x, y, sequence_length):
 
     return torch.FloatTensor(x_seq).to(device), torch.FloatTensor(y_seq).to(device).view(-1, 1)
 
-split = 1600
-sequence_length = 6
 
+
+
+split = 1600           # split 개수 만큼 train이 된다
+# split = int(0.8 * len(x_seq))
+sequence_length = 6    # 함께 묵을 날짜 수
+
+
+# seq_data() 함수를 통해 데이터를 묶은 후 각각 x_seq, y_seq에 넣어 줌
 x_seq, y_seq = seq_data(X, Y, sequence_length)
-#split = int(0.8 * len(x_seq))
 
+
+# train / test로 쪼갬
 x_train_seq = x_seq[:split]
 y_train_seq = y_seq[:split]
 x_test_seq = x_seq[split:]
 y_test_seq = y_seq[split:]
 
-#print(x_train_seq.shape)
+
+# shape 확인용 출력
+# print(x_train_seq.shape)
 # print(y_train_seq.shape)
 # print(x_test_seq.shape)
 # print(y_test_seq.shape)
 
+
+# SMOTE 사용하기 위해 차원을 바꿔 줌
 nsamples, nx, ny = x_train_seq.shape
-print("nsamples :", nsamples)
-print("nx :", nx)
-print("ny :", ny)
+# print("nsamples :", nsamples)
+# print("nx :", nx)
+# print("ny :", ny)
 
 x_train_seq = x_train_seq.reshape((nsamples, nx*ny))
+# print('Number of x_seq :', len(x_seq))
+# print('Number of y_seq :', len(y_seq))
 
-#print(x_train_seq.shape)
-#print(y_train_seq.shape)
+# SOMTE 적용 전 shape 확인용
+print('Before SMOTE OverSampling, the shape of x: {}'.format(x_seq.shape))
+print('Before SMOTE OverSampling, the shape of y: {} \n'.format(y_seq.shape))
 
+# print(x_train_seq.shape)
+# print(y_train_seq.shape)
+
+
+# SMOTE 기법 사용하여 train 늘려 줌
 sm = SMOTE(random_state=0)
 x_smote, y_smote = sm.fit_resample(x_train_seq, y_train_seq)
 
-print('After SMOTE OverSampling, the shape of x: {}'.format(x_smote.shape))
-print('After SMOTE OverSampling, the shape of y: {} \n'.format(y_smote.shape))
 
+# SMOTE 적용 후 shape 확인용
+print('After SMOTE OverSampling, the shape of x: {}'.format(x_smote.shape))       # train만 SMOTE 적용 (x)
+print('After SMOTE OverSampling, the shape of y: {} \n'.format(y_smote.shape))    # train만 SMOTE 적용 (y)
+
+
+# 차원 바꾸는 과정 Tensor로 바꿨다가 reshape 함
 x_smote = torch.Tensor(x_smote)
 tempx, tempx2  = x_smote.shape
 x_smote = x_smote.reshape((tempx, sequence_length, input_size))
@@ -82,21 +119,29 @@ y_smote = torch.Tensor(y_smote)
 tempy, = y_smote.shape
 y_smote = y_smote.reshape((tempy, 1))
 
-#print("y_smote.shape: ", y_smote.shape)
-#print("y_test_seq.shape: ", y_test_seq.shape)
+# shape 확인용
+# print("y_smote.shape: ", y_smote.shape)
+# print("y_test_seq.shape: ", y_test_seq.shape)
 
+# TensorDataset에 넣어줌
 train = torch.utils.data.TensorDataset(x_smote, y_smote)
 test = torch.utils.data.TensorDataset(x_test_seq, y_test_seq)
 
-#print(len(train))         #370
-#print(len(test))          #1724
 
+# 길이 확인용 train은 smote 한 후 길이가 늘어나 있고
+# test는 smote를 적용안해서 전체 길이 - seq_length가 들어가 있음
+print("len(train): ", len(train))
+print("len(test): ", len(test))
+
+
+# trainloader 와 testloader에 각각 train과 test셋을 넣어 줌
 trainloader = torch.utils.data.DataLoader(dataset=train, batch_size=6, shuffle=True)
 testloader = torch.utils.data.DataLoader(dataset=test, batch_size=6)
 
 
-num_layers = 2
-hidden_size = 6
+
+num_layers = 2          # lstm 층의 수
+hidden_size = 6         # 은닉층의 피처 개수
 
 ### input size = 입력 피처의 개수 / hidden size = 은닉층의 피처 개수 / num_layers = LSTM layer를 몇층으로 쌓을지 / bias = bias 여부 / dropout = dropout 비율
 class LSTM(nn.Module):
@@ -106,7 +151,7 @@ class LSTM(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)           # batch 관련 부분은 검토 필요!!
         self.fc = nn.Linear(hidden_size * sequence_length, 1)
 
     def forward(self, x):
@@ -117,23 +162,27 @@ class LSTM(nn.Module):
         out = self.fc(out)
         return out
 
-model = LSTM(input_size=input_size,
-             hidden_size=hidden_size,
-             num_layers=num_layers,
-             sequence_length=sequence_length,
-             device=device).to(device)
 
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+# 모델 정의
+model = LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, sequence_length=sequence_length, device=device).to(device)
 
-n = len(trainloader)
-loss_graph = []
 
-for epoch in range(5):
+
+criterion = nn.MSELoss()     # MSE 손실함수 사용
+optimizer = optim.Adam(model.parameters(), lr=1e-3)   # Adam optimizer 사용
+
+
+
+n = len(trainloader)    # n에 trainloader 길이 넣어 줌
+loss_graph = []         # 손실값 구하는 데 사용할 배열
+
+
+# epoch 만큼 반복하며 loss 구하며 최적화
+for epoch in range(1):
     running_loss = 0.0
     for data in trainloader:
         seq, target = data
-        outputs = model(seq)
+        outputs = model(seq)   #model.forward()랑 그냥이랑 무슨차이 -> 그냥 model이 더 좋은듯
         optimizer.zero_grad()
         loss = criterion(outputs, target)
         loss.backward()
@@ -145,14 +194,17 @@ for epoch in range(5):
     #if epoch % 100 == 0:
     print("Epoch : %d loss : %.4f" % (epoch, running_loss / n))
 
+
 concatdata = torch.utils.data.ConcatDataset([test])
 data_loader = torch.utils.data.DataLoader(concatdata)
 
 #print(len(data_loader))
 
-with torch.no_grad():
+
+# https://076923.github.io/posts/Python-pytorch-9/ 참고하면 테스트 데이터 정의해서 모델 평가하는 것도 확인 가능 -> 입력과 차원을 같게
+with torch.no_grad():   # gradient 옵션을 그만할 때 사용, 보통 더이상 학습 안하고 학습된 모델로 결과를 볼 때 사용
     pred = []
-    model.eval()
+    model.eval()        # evaluation 과정에서 사용하지 않아도 되는 layer들을 off 시켜줌
     for data in data_loader:
         seq, target = data
         out = model(seq)
@@ -191,12 +243,11 @@ for i in range(forTestLength):
 #for i in range(forTestLength):    실제 라벨 값 확인
 #     print(Y_real[forTestLength+i][0])
 
-
 plt.figure(figsize=(20, 10))
-plt.plot(np.ones(100) * (split+sequence_length), np.linspace(0, 10, 100), '-', linewidth = 0.6)
-plt.plot(Y[:], 'r')                        #빨간색이 실제
-plt.plot(pred[:], 'b', linewidth=0.6)      #파란색이 예측
-plt.legend(['hi'])
+plt.title("BMI prediction")
+plt.plot(Y[split+sequence_length:], 'r', label='real value')          # 빨간색이 실제
+plt.plot(pred[:], 'b', linewidth=0.6, label='prediction')             # 파란색이 예측
+plt.legend()                                                          # 범례 적용
 plt.show()
 
 
