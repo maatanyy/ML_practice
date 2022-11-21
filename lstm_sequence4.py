@@ -1,3 +1,8 @@
+# SMOTE 적용
+# 원핫인코딩 적용 안함
+# Y transform 안함
+# 결과가 나오는데 반올림하면 전부 유지 그래서 원핫 인코딩을 하는 게 좋을 것 같다.
+
 import numpy as np
 import pandas as pd
 import torch
@@ -22,15 +27,15 @@ data[['Weight','BMI','Step','Burn','Eat','Sleep']] = scaler.fit_transform(data[[
 
 
 # Y_real 에는 마지막 원래 라벨값 넣어둠 -> 예측된 값과 비교하기 위해 쓰임
-#Y_real = data[['Label']]
-#Y_real = Y_real.to_numpy()
+Y_real = data[['Label']]
+Y_real = Y_real.to_numpy()
 
-Y_real = pd.get_dummies('Label')
-print(Y_real)
+#Y_real = pd.get_dummies('Label')
+#print(Y_real)
 
 # MinMaxScaler()로 정규화
-scaler2 = MinMaxScaler()
-data[['Label']] = scaler2.fit_transform(data[['Label']])
+#scaler2 = MinMaxScaler()
+#data[['Label']] = scaler2.fit_transform(data[['Label']])
 
 
 # 이유는 모르겠는데 라벨 타입을 인트로 바꿈 (에러 해결하기 위해 이랬음)
@@ -141,9 +146,10 @@ testloader = torch.utils.data.DataLoader(dataset=test, batch_size=6)
 
 
 num_layers = 2          # lstm 층의 수
-hidden_size = 6         # 은닉층의 피처 개수
+hidden_size = 12         # 은닉층의 피처 개수
 
 ### input size = 입력 피처의 개수 / hidden size = 은닉층의 피처 개수 / num_layers = LSTM layer를 몇층으로 쌓을지 / bias = bias 여부 / dropout = dropout 비율
+#  https://stackoverflow.com/questions/53475803/understanding-the-softmax-output-layer-of-rnn          softmax부분 구조 참고
 class LSTM(nn.Module):
     def __init__(self, input_size, hidden_size, sequence_length, num_layers, device):
         super(LSTM, self).__init__()
@@ -151,24 +157,28 @@ class LSTM(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)           # batch 관련 부분은 검토 필요!!
+        self.lstm1 = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)           # batch 관련 부분은 검토 필요!!
+        self.lstm2 = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_size * sequence_length, 1)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         h0 = torch.zeros(self.num_layers, x.size()[0], self.hidden_size).to(self.device)
         c0 = torch.zeros(self.num_layers, x.size()[0], self.hidden_size).to(self.device)
-        out, _ = self.lstm(x, (h0, c0))
+        out, _ = self.lstm1(x, (h0, c0))
+        out, _ = self.lstm2(x, (h0, c0))
         out = out.reshape(out.shape[0], -1)
         out = self.fc(out)
+        out = self.relu(out)
         return out
 
 
 # 모델 정의
 model = LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers, sequence_length=sequence_length, device=device).to(device)
 
+print(model)
 
-
-criterion = nn.MSELoss()     # MSE 손실함수 사용
+criterion = nn.MSELoss()    # MSE 손실함수 사용
 optimizer = optim.Adam(model.parameters(), lr=1e-3)   # Adam optimizer 사용
 
 
@@ -182,7 +192,7 @@ for epoch in range(1):
     running_loss = 0.0
     for data in trainloader:
         seq, target = data
-        outputs = model(seq)   #model.forward()랑 그냥이랑 무슨차이 -> 그냥 model이 더 좋은듯
+        outputs = model(seq)   # model.forward()랑 그냥이랑 무슨차이 -> 그냥 model이 더 좋은듯
         optimizer.zero_grad()
         loss = criterion(outputs, target)
         loss.backward()
@@ -211,8 +221,9 @@ with torch.no_grad():   # gradient 옵션을 그만할 때 사용, 보통 더이
         pred += out.cpu().tolist()
 
 
-pred = scaler2.inverse_transform(pred)
-Y = scaler2.inverse_transform(Y)
+print(pred)
+#pred = scaler2.inverse_transform(pred)
+#Y = scaler2.inverse_transform(Y)
 length = len(pred)
 
 #print(Y[sequence_length:])
