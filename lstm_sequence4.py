@@ -23,7 +23,7 @@ data = pd.read_excel('2weeks_summary2.xlsx')
 
 # MinMaxScaler()로 정규화
 scaler = MinMaxScaler()
-data[['Weight','BMI','Step','Burn','Eat','Sleep']] = scaler.fit_transform(data[['Weight','BMI','Step','Burn','Eat','Sleep']])
+data[['Height', 'Weight', 'Step', 'Burn', 'Eat', 'Sleep']] = scaler.fit_transform(data[['Height', 'Weight', 'Step', 'Burn', 'Eat', 'Sleep']])
 
 
 # Y_real 에는 마지막 원래 라벨값 넣어둠 -> 예측된 값과 비교하기 위해 쓰임
@@ -39,9 +39,10 @@ Y_real = Y_real.to_numpy()
 
 
 # 이유는 모르겠는데 라벨 타입을 인트로 바꿈 (에러 해결하기 위해 이랬음)
-X = data[['Weight','BMI','Step','Burn','Eat','Sleep']].values
+X = data[['Height', 'Weight', 'Step', 'Burn', 'Eat', 'Sleep']].values
 data = data.astype({'Label':'int'})
 Y = data[['Label']].values
+
 
 
 input_size = 6        # input_size, 입력 변수의 개수
@@ -49,6 +50,7 @@ print(input_size)
 
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
+
 
 
 # seq_length 만큼 데이터를 묶어주는 함수임
@@ -60,6 +62,7 @@ def seq_data(x, y, sequence_length):
         y_seq.append(y[i + sequence_length])
 
     return torch.FloatTensor(x_seq).to(device), torch.FloatTensor(y_seq).to(device).view(-1, 1)
+
 
 
 
@@ -87,15 +90,32 @@ y_test_seq = y_seq[split:]
 # print(y_test_seq.shape)
 
 
+
 # SMOTE 사용하기 위해 차원을 바꿔 줌
 nsamples, nx, ny = x_train_seq.shape
+
+# 차원 바꾸는 과정 중 변수 값 확인용
 # print("nsamples :", nsamples)
 # print("nx :", nx)
 # print("ny :", ny)
 
 x_train_seq = x_train_seq.reshape((nsamples, nx*ny))
+
 # print('Number of x_seq :', len(x_seq))
 # print('Number of y_seq :', len(y_seq))
+
+
+# y_test 원핫인코딩 :   flatten() -> get_dummies
+y_test_seq = y_test_seq.flatten()
+y_test_seq = torch.Tensor(pd.get_dummies(y_test_seq).values)
+
+
+#원핫인코딩 후 shape 확인용
+#print('The shape of test_y: {} \n'.format(y_test_seq.shape))
+
+#test_y 원핫 인코딩 결과 확인용
+#print(y_test_seq)
+
 
 # SOMTE 적용 전 shape 확인용
 print('Before SMOTE OverSampling, the shape of x: {}'.format(x_seq.shape))
@@ -103,7 +123,6 @@ print('Before SMOTE OverSampling, the shape of y: {} \n'.format(y_seq.shape))
 
 # print(x_train_seq.shape)
 # print(y_train_seq.shape)
-
 
 # SMOTE 기법 사용하여 train 늘려 줌
 sm = SMOTE(random_state=0)
@@ -116,17 +135,22 @@ print('After SMOTE OverSampling, the shape of y: {} \n'.format(y_smote.shape))  
 
 
 # 차원 바꾸는 과정 Tensor로 바꿨다가 reshape 함
+
 x_smote = torch.Tensor(x_smote)
 tempx, tempx2  = x_smote.shape
 x_smote = x_smote.reshape((tempx, sequence_length, input_size))
 
-y_smote = torch.Tensor(y_smote)
-tempy, = y_smote.shape
-y_smote = y_smote.reshape((tempy, 1))
 
+# y_smote 이후에 원핫인코딩 적용 (y_train)
+y_smote = torch.Tensor(pd.get_dummies(y_smote).values)
+
+#y_train 원핫인코딩 결과 확인용
+#print(y_smote)
 # shape 확인용
+
 # print("y_smote.shape: ", y_smote.shape)
 # print("y_test_seq.shape: ", y_test_seq.shape)
+
 
 # TensorDataset에 넣어줌
 train = torch.utils.data.TensorDataset(x_smote, y_smote)
@@ -246,7 +270,7 @@ forTestLength = len(X)-sequence_length-split
 
 
 for i in range(forTestLength):
-     if round(pred[i][0]) == round(Y_real[forTestLength+i][0]):
+     if pred[i][0] == Y_real[forTestLength+i][0]:
          count = count+1
 
 
