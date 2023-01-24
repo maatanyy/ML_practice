@@ -15,11 +15,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from imblearn.over_sampling import SMOTE
 import torch.nn.functional as F
 from sklearn.metrics import precision_recall_fscore_support as sk
-<<<<<<< HEAD
 from sklearn.metrics import f1_score  ## F1 Score 구하기
-=======
-from sklearn.metrics import f1_score ## F1 Score 구하기
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
 from sklearn.metrics import accuracy_score
 
 # 엑셀 파일을 읽어옴
@@ -28,12 +24,20 @@ data = pd.read_excel('Continous_2weeks_2day_1term.xlsx')
 # StandardScaler()로 정규화
 scaler = StandardScaler()
 
-<<<<<<< HEAD
-data[['Height', 'Weight', 'Step', 'Burn', 'Eat', 'Sleep']] = scaler.fit_transform(data[['Height', 'Weight', 'Step', 'Burn', 'Eat', 'Sleep']])
-X = data[['Height','Weight','Step','Burn','Eat','Sleep']].values
+X = data.iloc[:, [1,3,4,5,6,7]]
+Y = data.iloc[:,[-1]]
 
-y = data[['Label']].values
-sequence_length = 6    # 함께 묵을 날짜 수
+
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
+X = pd.DataFrame(X)
+Y_real = data.iloc[:,[-1]]
+
+sequence_length = 6   # 함께 묵을 날짜 수
+# seq_length 만큼 데이터를 묶어주는 함수임
+
+#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+Device = torch.device("cpu")
 
 def seq_data(x, y, sequence_length):
     x_seq = []
@@ -42,57 +46,38 @@ def seq_data(x, y, sequence_length):
         x_seq.append(x[i:i + sequence_length])
         y_seq.append(y[i + sequence_length])
 
-    return np.array(x_seq), np.array(y_seq)
+    return torch.FloatTensor(x_seq).to(Device), torch.FloatTensor(y_seq).to(Device).view(-1, 1)
 
 
-# seq_data() 함수를 통해 데이터를 묶은 후 각각 x_seq, y_seq에 넣어 줌
-X, y = seq_data(X, y, sequence_length)
+X, Y = seq_data(X, Y, sequence_length)
 
-=======
-X = data.iloc[:,[1,3,4,5,6,7]]
-Y = data.iloc[:,-1]
-
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
 X = pd.DataFrame(X)
-Y_real = data.iloc[:,-1]
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
+Y = pd.DataFrame(Y)
+
+print('*')
+print(X.shape)
+print(Y.shape)
+print('*')
+
 
 EPOCHS = 100
 input_size = 6        # input_size, 입력 변수의 개수
 print(input_size)
 
-<<<<<<< HEAD
-=======
-#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-Device = torch.device("cpu")
-
-
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
 
 #결과 넣을 배열
 Result = [[0 for j in range(4)] for i in range(10)]
 Count = int(322/10)*83
 pred_list = []
-<<<<<<< HEAD
-Device = torch.device("cpu")
-
-class LSTM(nn.Module):
-    def __init__(self, input_size, num_classes, hidden_size, num_layers, device):
-=======
 
 class LSTM(nn.Module):
     def __init__(self, input_size, num_classes, hidden_size, sequence_length, num_layers, device):
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
         super(LSTM, self).__init__()
         self.device = device
         self.input_size = input_size  # input size
         self.num_classes = num_classes  # number of classes
         self.hidden_size = hidden_size  # hidden state
-<<<<<<< HEAD
-=======
         self.sequence_length = sequence_length  # sequence length
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
         self.num_layers = num_layers  # number of layers
 
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size,
@@ -116,21 +101,6 @@ class LSTM(nn.Module):
         return out
 
 
-<<<<<<< HEAD
-=======
-
-# seq_length 만큼 데이터를 묶어주는 함수임
-def seq_data(x, y, sequence_length):
-    x_seq = []
-    y_seq = []
-    for i in range(len(x) - sequence_length):
-        x_seq.append(x[i:i + sequence_length])
-        y_seq.append(y[i + sequence_length])
-
-    return torch.FloatTensor(x_seq).to(Device), torch.FloatTensor(y_seq).to(Device).view(-1, 1)
-
-sequence_length = 0    # 함께 묵을 날짜 수
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
 num_layers = 1  # lstm 층의 수, Number of recurrent layers
 # setting num_layers=2 would mean stacking two LSTMs together to form stacked LSTM, with the second LSTM taking in outputs of the first LSTM and computing the final results
 hidden_size = 6  # 은닉층의 피처 개수
@@ -140,11 +110,6 @@ num_classes = 3  # number of output classes
 criterion = nn.MSELoss()  # MSE 손실함수 사용
 
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
 def train(model, trainloader, optimizer):
     model.train()
 # epoch 만큼 반복하며 loss 구하며 최적화
@@ -164,28 +129,15 @@ def train(model, trainloader, optimizer):
         optimizer.step()
 
 
-<<<<<<< HEAD
-def evaluate(model, test_loader):
-    # 모델을 평가 모드로 전환
-    model.eval()
-    # 필요한 변수 초기화
-    # Test과정에서의 Loss = test_loss
-    # 실제 모델의 예측이 정답과 맞은 횟수 = correct
-=======
 
 def evaluate(model, data_loader):
     model.eval()
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
     test_loss = 0
     correct = 0
     pred_list = []
     pred_array = []
     with torch.no_grad():  # 평가 과정에서는 기울기를 계산하지 않으므로, no_grad명시
-<<<<<<< HEAD
-        for data, target in test_loader:
-=======
         for data, target in data_loader:
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
             data, target = data.to(Device), target.to(Device)
             output = model(data)
 
@@ -203,11 +155,11 @@ def evaluate(model, data_loader):
             # eq() 함수는 값이 일치하면 1을, 아니면 0을 출력.
             correct += pred.eq(target.view_as(pred)).sum().item()
 
-<<<<<<< HEAD
-    test_loss /= len(test_loader.dataset)
+    test_loss /= len(data_loader.dataset)
     # 정확도 계산
-    test_accuracy = 100. * correct / len(test_loader.dataset)
+    test_accuracy = 100. * correct / len(data_loader.dataset)
     return test_loss, test_accuracy, pred_list
+
 
 #한 사람당 데이터 수
 Count_1 = int(83*0.1)
@@ -223,35 +175,6 @@ empty = pd.DataFrame()
 #결과 넣을 배열
 Result = [[0 for j in range(4)] for i in range(10)]
 
-for i in range(10):
-    # 모델 정의
-    model = LSTM(input_size=input_size, num_classes=num_classes, hidden_size=hidden_size, num_layers=num_layers,device=Device).to(Device)
-    # 옵티마이저를 정의합니다. 옵티마이저에는 model.parameters()를 지정해야 합니다.
-    optimizer = optim.Adam(model.parameters(), lr=0.01)    # Adam optimizer 사용
-    # 손실함수(loss function)을 지정합니다. Multi-Class Classification 이기 때문에 CrossEntropy 손실을 지정하였습니다.
-    loss_fn = nn.CrossEntropyLoss()
-
-=======
-    test_loss /= len(data_loader.dataset)
-    # 정확도 계산
-    test_accuracy = 100. * correct / len(data_loader.dataset)
-    return test_loss, test_accuracy, pred_list
-
-
-#한 사람당 데이터 수
-Count_1=int(83*0.1)
-#한 사람당 데이터 수
-Count_2=83
-
-X_test=pd.DataFrame()
-X_train=pd.DataFrame()
-y_test=pd.DataFrame()
-y_train=pd.DataFrame()
-empty=pd.DataFrame()
-
-#결과 넣을 배열
-Result=[[0 for j in range(4)] for i in range(10)]
-
 
 for i in range(10):
     # 모델 정의
@@ -262,84 +185,40 @@ for i in range(10):
 
     # 손실함수(loss function)을 지정합니다. Multi-Class Classification 이기 때문에 CrossEntropy 손실을 지정하였습니다.
     loss_fn = nn.CrossEntropyLoss()
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
+
     X_test = empty
     X_train = empty
     y_test = empty
     y_train = empty
-<<<<<<< HEAD
 
     y_test_list = []
 
-
-    ##########################    차원 바꾸는 과정
-    nsamples, nx, ny = X.shape
-    X = X.reshape((nsamples, nx * ny))
-
-    X = pd.DataFrame(X)
-    y = pd.DataFrame(y)
-    ##########################    차원 바꾸는 과정
-
-=======
-    y_test_list = []
-
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
     for j in range(322):
         X_temp_test = X.iloc[Count_2 * j + Count_1 * i:Count_2 * j + Count_1 * (i + 1)]
         X_test = pd.concat([X_test, X_temp_test])
         X_temp_train = X.iloc[Count_2 * j + Count_1:Count_2 * (j + 1)]
         X_train = pd.concat([X_train, X_temp_train])
-<<<<<<< HEAD
-        y_temp_test = y.iloc[Count_2 * j + Count_1 * i:Count_2 * j + Count_1 * (i + 1)]
-        y_test = pd.concat([y_test, y_temp_test])
-        y_temp_train = y.iloc[Count_2 * j + Count_1:Count_2 * (j + 1)]
-=======
-
         y_temp_test = Y.iloc[Count_2 * j + Count_1 * i:Count_2 * j + Count_1 * (i + 1)]
         y_test = pd.concat([y_test, y_temp_test])
         y_temp_train = Y.iloc[Count_2 * j + Count_1:Count_2 * (j + 1)]
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
         y_train = pd.concat([y_train, y_temp_train])
 
     print('SMOTE 적용 전 Train 레이블 값 분포: \n', y_train.value_counts())
     print('SMOTE 적용 전 Test 레이블 값 분포: \n', y_test.value_counts())
 
-<<<<<<< HEAD
-
-
-=======
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
     # SMOTE 적용
     smote = SMOTE(random_state=0)
     X_train, y_train = smote.fit_resample(X_train, y_train)
     #     X_test,y_test = smote.fit_resample(X_test,y_test)
-<<<<<<< HEAD
-
-=======
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
     print('SMOTE 적용 후 학습용 피처/레이블 데이터 세트: ', X_test.shape, y_test.shape)
     print('SMOTE 적용 후 Train 레이블 값 분포: \n', y_train.value_counts())
     print('SMOTE 적용 후 Test 레이블 값 분포: \n', y_test.value_counts())
 
-<<<<<<< HEAD
+    #################################################
 
-    X_train = torch.FloatTensor(X_train.to_numpy())
-    tempx, tempx2 = X_train.shape
-    X_train = X_train.reshape((tempx, sequence_length, input_size))
-
-    X_test = torch.FloatTensor(X_test.to_numpy())
-    tempx, tempx2 = X_test.shape
-    X_test = X_test.reshape((tempx, sequence_length, input_size))
-
-
-    # 모든 데이터 torch로 변환
-    #X_train = torch.FloatTensor(X_train.to_numpy())
-    #X_test = torch.FloatTensor(X_test.to_numpy())
-=======
     # 모든 데이터 torch로 변환
     X_train = torch.FloatTensor(X_train.to_numpy())
     X_test = torch.FloatTensor(X_test.to_numpy())
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
     print("X_test", len(X_test))
     y_train = y_train.to_numpy()
     y_train = np.ravel(y_train, order='C')
@@ -347,21 +226,6 @@ for i in range(10):
     y_test = y_test.to_numpy()
     y_test = np.ravel(y_test, order='C')
     y_test = torch.LongTensor(y_test)
-<<<<<<< HEAD
-    print("y_test", len(y_test))
-
-    # train_dataset, test_dataset을 구별하여 정의
-    train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
-    test_dataset = torch.utils.data.TensorDataset(X_test, y_test)
-    train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=False)
-    test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=False)
-
-
-
-    for epoch in range(1, EPOCHS + 1):
-        train(model, train_dataloader, optimizer)
-
-=======
     print("y_test", y_test)
     # train_dataset, test_dataset을 구별하여 정의
     train_dataset = TensorDataset(X_train, y_train)
@@ -372,7 +236,6 @@ for i in range(10):
 
     for epoch in range(1, EPOCHS + 1):
         train(model, train_dataloader, optimizer)
->>>>>>> f1b6c3ffad115df798898ae1379895e0e39036a2
         test_loss, test_accuracy, predict = evaluate(model, test_dataloader)
 
         print('[{}] Test Loss: {:.4f}, Accuracy: {:.2f}%'.format(epoch, test_loss, test_accuracy))
