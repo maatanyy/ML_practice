@@ -113,15 +113,18 @@ def train(model, trainloader, optimizer):
         optimizer.step()
 
 
-
-def evaluate(model, data_loader):
+def evaluate(model, test_loader):
+    # 모델을 평가 모드로 전환
     model.eval()
+    # 필요한 변수 초기화
+    # Test과정에서의 Loss = test_loss
+    # 실제 모델의 예측이 정답과 맞은 횟수 = correct
     test_loss = 0
     correct = 0
     pred_list = []
     pred_array = []
     with torch.no_grad():  # 평가 과정에서는 기울기를 계산하지 않으므로, no_grad명시
-        for data, target in data_loader:
+        for data, target in test_loader:
             data, target = data.to(Device), target.to(Device)
             output = model(data)
 
@@ -139,11 +142,10 @@ def evaluate(model, data_loader):
             # eq() 함수는 값이 일치하면 1을, 아니면 0을 출력.
             correct += pred.eq(target.view_as(pred)).sum().item()
 
-    test_loss /= len(data_loader.dataset)
+    test_loss /= len(test_loader.dataset)
     # 정확도 계산
-    test_accuracy = 100. * correct / len(data_loader.dataset)
+    test_accuracy = 100. * correct / len(test_loader.dataset)
     return test_loss, test_accuracy, pred_list
-
 
 #한 사람당 데이터 수
 Count_1 = int(83*0.1)
@@ -208,16 +210,18 @@ for i in range(10):
     print('SMOTE 적용 후 Test 레이블 값 분포: \n', y_test.value_counts())
 
 
-    print(X_train)
     X_train = torch.FloatTensor(X_train.to_numpy())
     tempx, tempx2 = X_train.shape
     X_train = X_train.reshape((tempx, sequence_length, input_size))
 
+    X_test = torch.FloatTensor(X_test.to_numpy())
+    tempx, tempx2 = X_test.shape
+    X_test = X_test.reshape((tempx, sequence_length, input_size))
+
 
     # 모든 데이터 torch로 변환
-
     #X_train = torch.FloatTensor(X_train.to_numpy())
-    X_test = torch.FloatTensor(X_test.to_numpy())
+    #X_test = torch.FloatTensor(X_test.to_numpy())
     print("X_test", len(X_test))
     y_train = y_train.to_numpy()
     y_train = np.ravel(y_train, order='C')
@@ -225,7 +229,8 @@ for i in range(10):
     y_test = y_test.to_numpy()
     y_test = np.ravel(y_test, order='C')
     y_test = torch.LongTensor(y_test)
-    print("y_test", y_test)
+    print("y_test", len(y_test))
+
     # train_dataset, test_dataset을 구별하여 정의
     train_dataset = torch.utils.data.TensorDataset(X_train, y_train)
     test_dataset = torch.utils.data.TensorDataset(X_test, y_test)
@@ -233,8 +238,10 @@ for i in range(10):
     test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
 
+
     for epoch in range(1, EPOCHS + 1):
         train(model, train_dataloader, optimizer)
+
         test_loss, test_accuracy, predict = evaluate(model, test_dataloader)
 
         print('[{}] Test Loss: {:.4f}, Accuracy: {:.2f}%'.format(epoch, test_loss, test_accuracy))
